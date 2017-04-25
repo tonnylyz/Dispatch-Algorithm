@@ -4,16 +4,17 @@
 
 #include <vector>
 #include "point.h"
+#include "order.h"
 
-class district {
+class district : point {
 private:
 public:
-
     const unsigned int index;
-    const point location;
-    district(unsigned int index, point location) : index(index), location(location) {
-
+    district(unsigned int index, point location) : index(index) {
+        _x = location.x();
+        _y = location.y();
     }
+
 };
 
 

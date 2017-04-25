@@ -4,7 +4,7 @@
 #include <cmath>
 
 class point {
-private:
+protected:
     double _x;
     double _y;
 public:
@@ -22,12 +22,6 @@ public:
         double yd = _y - p._y;
         return sqrt(xd * xd + yd * yd);
     }
-
-    void move(double a, double b) {
-        _x += a;
-        _y += b;
-    }
-
 };
 
 

@@ -3,16 +3,18 @@
 
 
 #include <vector>
+#include <algorithm>
 #include "point.h"
+#include "order.h"
 
-class restaurant {
+class restaurant : point {
 private:
 public:
-
     const unsigned int index;
-    const point location;
-    restaurant(unsigned int index, point location) : index(index), location(location) {
-
+    restaurant(unsigned int index, point location) : index(index) {
+        _x = location.x();
+        _y = location.y();
+        _meal = std::vector<order> ();
     }
 };
 

@@ -3,14 +3,32 @@
 
 #include <vector>
 #include "point.h"
-class dispatcher {
+#include "restaurant.h"
+#include "main.h"
+
+class dispatcher : point {
 private:
     const unsigned int _index;
+    std::vector<order> _bag;
 public:
-    point location;
     dispatcher(unsigned int index, point location) : _index(index) {
-        this->location = location;
-    };
+        _x = location.x();
+        _y = location.y();
+        _bag = std::vector<order> ();
+    }
+
+    double moveTo(point target)
+    {
+        _x = target.x();
+        _y = target.y();
+        if (restaurant *r = dynamic_cast<restaurant *> (&target)) {
+            // TODO: Strategy need here
+        } else if (district *r = dynamic_cast<district *> (&target)) {
+            // TODO: Strategy need here
+        }
+        // Return distance (time)
+        return dist(target);
+    }
 
     static void initialize(unsigned int n, std::vector<dispatcher> &v) {
         // TODO: Initialize n dispatchers

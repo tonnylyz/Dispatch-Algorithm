@@ -1,22 +1,31 @@
+#include <fstream>
 #include "main.h"
 
 #include "proc_static.h"
 
+#define DATA_SET "sample.txt"
+
 int main() {
     std::cout << "Algorithm Project" << std::endl;
 
-    std::cin >> restaurantNum;
-    std::cin >> districtNum;
-    std::cin >> dispatcherNum;
-    std::cin >> containerSize;
-    std::cin >> orderNum;
+    std::ifstream in(DATA_SET, std::ios::in);
+    if (!in.is_open()) {
+        std::cerr << "Unable to open file '" << DATA_SET << "'." << std::endl;
+        return 0;
+    }
+
+    in >> restaurantNum;
+    in >> districtNum;
+    in >> dispatcherNum;
+    in >> containerSize;
+    in >> orderNum;
 
     // Initialize restaurant
     restaurants = std::vector<restaurant>();
     for (unsigned int i = 1; i <= restaurantNum; i++) {
         double x, y;
-        std::cin >> x;
-        std::cin >> y;
+        in >> x;
+        in >> y;
         restaurant tmp = restaurant(i, point(x, y));
         restaurants.push_back(tmp);
     }
@@ -25,8 +34,8 @@ int main() {
     districts = std::vector<district>();
     for (unsigned int i = 1; i <= districtNum; i++) {
         double x, y;
-        std::cin >> x;
-        std::cin >> y;
+        in >> x;
+        in >> y;
         district tmp = district(i, point(x, y));
         districts.push_back(tmp);
     }
@@ -40,9 +49,9 @@ int main() {
         double time;
         unsigned int r;
         unsigned int d;
-        std::cin >> time;
-        std::cin >> r;
-        std::cin >> d;
+        in >> time;
+        in >> r;
+        in >> d;
         orders.push_back(order(restaurants[r], districts[d], time));
     }
 

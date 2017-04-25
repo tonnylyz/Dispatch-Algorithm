@@ -18,5 +18,8 @@ std::vector<district> districts;
 std::vector<dispatcher> dispatchers;
 std::vector<order> orders;
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 
 #endif //ALGORITHM_MAIN_H
