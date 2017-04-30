@@ -9,12 +9,10 @@
 class dispatcher : point {
 private:
     const unsigned int _index;
-    std::vector<order> _bag;
 public:
     dispatcher(unsigned int index, point location) : _index(index) {
         _x = location.x();
         _y = location.y();
-        _bag = std::vector<order> ();
     }
 
     double moveTo(point target)

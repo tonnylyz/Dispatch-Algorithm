@@ -14,7 +14,6 @@ public:
     restaurant(unsigned int index, point location) : index(index) {
         _x = location.x();
         _y = location.y();
-        _meal = std::vector<order> ();
     }
 };
 
