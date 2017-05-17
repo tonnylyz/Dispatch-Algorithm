@@ -1,10 +1,9 @@
 #ifndef ALGORITHM_ORDER_H
 #define ALGORITHM_ORDER_H
 
-
-#include "point.h"
 #include "restaurant.h"
 #include "district.h"
+
 class order {
 private:
 public:

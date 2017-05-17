@@ -1,12 +1,9 @@
 #ifndef ALGORITHM_DISTRICT_H
 #define ALGORITHM_DISTRICT_H
 
-
-#include <vector>
 #include "point.h"
-#include "order.h"
 
-class district : point {
+class district : public point {
 private:
 public:
     const unsigned int index;

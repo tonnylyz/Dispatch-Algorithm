@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <map>
 #include "restaurant.h"
 #include "district.h"
 #include "dispatcher.h"

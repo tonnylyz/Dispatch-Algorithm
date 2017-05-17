@@ -4,9 +4,9 @@
 #include <vector>
 #include "point.h"
 #include "restaurant.h"
-#include "main.h"
+#include "district.h"
 
-class dispatcher : point {
+class dispatcher : public point {
 private:
     const unsigned int _index;
 public:
@@ -25,7 +25,7 @@ public:
             // TODO: Strategy need here
         }
         // Return distance (time)
-        return dist(target);
+        return distant(target);
     }
 
     static void initialize(unsigned int n, std::vector<dispatcher> &v) {

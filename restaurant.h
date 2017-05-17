@@ -1,13 +1,9 @@
 #ifndef ALGORITHM_RESTAURANT_H
 #define ALGORITHM_RESTAURANT_H
 
-
-#include <vector>
-#include <algorithm>
 #include "point.h"
-#include "order.h"
 
-class restaurant : point {
+class restaurant : public point {
 private:
 public:
     const unsigned int index;

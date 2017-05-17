@@ -3,7 +3,7 @@
 
 #include "proc_static.h"
 
-#define DATA_SET "sample.txt"
+#define DATA_SET "large.txt"
 
 int main() {
     std::cout << "Algorithm Project" << std::endl;
@@ -43,17 +43,18 @@ int main() {
     // Initialize dispatcher
     dispatcher::initialize(dispatcherNum, dispatchers);
 
+
     // Initialize order
     orders = std::vector<order>();
-    for (unsigned int i = 1; i <= orderNum; i++) {
-        double time;
-        unsigned int r;
-        unsigned int d;
-        in >> time;
-        in >> r;
-        in >> d;
-        orders.push_back(order(restaurants[r], districts[d], time));
-    }
+	for (unsigned int i = 1; i <= orderNum; i++) {
+		double time;
+		unsigned int r;
+		unsigned int d;
+		in >> time;
+		in >> r;
+		in >> d;
+		orders.push_back(order(restaurants[r - 1], districts[d - 1], time));
+	}
 
     process();
 

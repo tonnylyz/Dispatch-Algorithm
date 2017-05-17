@@ -13,15 +13,25 @@ public:
         _y = y;
     }
 
-    double x() { return _x; }
+	double x() const { return _x; }
 
-    double y() { return _y; }
+	double y() const { return _y; }
 
-    double dist(point p) {
-        double xd = _x - p._x;
-        double yd = _y - p._y;
-        return sqrt(xd * xd + yd * yd);
-    }
+	double distant(const point p) const {
+		double xd = _x - p.x();
+		double yd = _y - p.y();
+		return sqrt(xd * xd + yd * yd);
+	}
+
+	static double dist(const point p, const point q) {
+		double xd = p.x() - q.x();
+		double yd = p.y() - q.y();
+		return sqrt(xd * xd + yd * yd);
+	}
+
+    virtual ~point() {};
+protected:
+
 };
 
 
