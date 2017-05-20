@@ -2,38 +2,42 @@
 #define ALGORITHM_DISPATCHER_H
 
 #include <vector>
+#include <set>
 #include "point.h"
-#include "restaurant.h"
 #include "district.h"
+#include "order.h"
+#include "restaurant.h"
 
 class dispatcher : public point {
-private:
-    const unsigned int _index;
+
 public:
-    dispatcher(unsigned int index, point location) : _index(index) {
-        _x = location.x();
-        _y = location.y();
-    }
 
-    double moveTo(point target)
-    {
-        _x = target.x();
-        _y = target.y();
-        if (restaurant *r = dynamic_cast<restaurant *> (&target)) {
-            // TODO: Strategy need here
-        } else if (district *r = dynamic_cast<district *> (&target)) {
-            // TODO: Strategy need here
-        }
-        // Return distance (time)
-        return distant(target);
-    }
-
-    static void initialize(unsigned int n, std::vector<dispatcher> &v) {
-        // TODO: Initialize n dispatchers
-        for (unsigned int i = 1; i <= n; i++) {
-            v.push_back(dispatcher(i, point(0, 0)));
-        }
+    const unsigned int index;
+    enum status {
+          idle      // Wait for schedule
+        , load      // On the way to restaurant
+        , deliver   // On the way to district
     };
+
+    dispatcher(unsigned int index, point location);
+
+    std::vector<order> toLoad;
+    std::vector<order> toDeliver;
+
+    status getStatus() const {
+        return _status;
+    }
+
+    void setStatus(status s) {
+        _status = s;
+    }
+
+    double moveTo(point target);
+
+    static std::vector<dispatcher> get(status s);
+
+private:
+    status _status;
 };
 
 

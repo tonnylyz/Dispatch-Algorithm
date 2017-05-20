@@ -113,6 +113,8 @@
     <ClCompile Include="dispatcher.cpp" />
     <ClCompile Include="district.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="matrix.cpp" />
+    <ClCompile Include="munkres.cpp" />
     <ClCompile Include="order.cpp" />
     <ClCompile Include="point.cpp" />
     <ClCompile Include="restaurant.cpp" />
@@ -120,7 +122,8 @@
   <ItemGroup>
     <ClInclude Include="dispatcher.h" />
     <ClInclude Include="district.h" />
-    <ClInclude Include="main.h" />
+    <ClInclude Include="matrix.h" />
+    <ClInclude Include="munkres.h" />
     <ClInclude Include="order.h" />
     <ClInclude Include="point.h" />
     <ClInclude Include="proc_dynamic.h" />

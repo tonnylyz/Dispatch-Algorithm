@@ -1,5 +1,8 @@
-//
-// Created by me on 2017/04/19 019.
-//
-
 #include "district.h"
+
+std::vector<district> *districts;
+
+district::district(unsigned int index, point location) : index(index) {
+    _x = location.x();
+    _y = location.y();
+}
