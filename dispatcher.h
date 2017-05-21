@@ -21,8 +21,12 @@ public:
 
     dispatcher(unsigned int index, point location);
 
-    std::vector<order> toLoad;
-    std::vector<order> toDeliver;
+    order* toLoad;
+    order* toDeliver;
+
+    point *target;
+    double timeStart;
+    double timeFinish;
 
     status getStatus() const {
         return _status;
@@ -34,7 +38,7 @@ public:
 
     double moveTo(point target);
 
-    static std::vector<dispatcher> get(status s);
+    static std::vector<dispatcher *> get(status s);
 
 private:
     status _status;

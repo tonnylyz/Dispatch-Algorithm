@@ -7,8 +7,9 @@ dispatcher::dispatcher(unsigned int index, point location) : index(index) {
     _x = location.x();
     _y = location.y();
     _status = idle;
-    toLoad = std::vector<order>();
-    toDeliver = std::vector<order>();
+    toLoad = nullptr;
+    toDeliver = nullptr;
+    target = nullptr;
 }
 
 
@@ -26,11 +27,11 @@ double dispatcher::moveTo(point target)
 }
 
 
-std::vector<dispatcher> dispatcher::get(status s) {
-    std::vector<dispatcher> result = std::vector<dispatcher>();
-    for (auto d : *dispatchers) {
+std::vector<dispatcher *> dispatcher::get(status s) {
+    std::vector<dispatcher *> result = std::vector<dispatcher *>();
+    for (auto &d : *dispatchers) {
         if (d._status == s) {
-            result.push_back(d);
+            result.push_back(&d);
         }
     }
     return result;

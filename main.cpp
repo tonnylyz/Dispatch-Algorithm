@@ -66,7 +66,7 @@ int main() {
 		in >> time;
 		in >> r;
 		in >> d;
-		orders->push_back(order(i, (*restaurants)[r - 1], (*districts)[d - 1], time));
+		orders->push_back(order(i, &(*restaurants)[r - 1], &(*districts)[d - 1], time));
 	}
 
     // Initialize dispatcher
@@ -74,7 +74,7 @@ int main() {
         dispatchers->push_back(dispatcher(i, point(0, 0)));
     }
 
-    std::cout << "Print overall infomation:" << std::endl;
+    std::cout << "Print overall information:" << std::endl;
     std::cout << "Restaurant number: " << restaurantNum << std::endl;
     std::cout << "District number: " << districtNum << std::endl;
     std::cout << "Dispatcher number: " << dispatcherNum << std::endl;
@@ -86,6 +86,5 @@ int main() {
 	delete restaurants;
 	delete districts;
 	delete orders;
-
     return 0;
 }
