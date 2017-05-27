@@ -2,6 +2,8 @@
 #define ALGORITHM_POINT_H
 
 #include <cmath>
+#include <iomanip>
+#include <ostream>
 
 class point {
 protected:
@@ -29,7 +31,19 @@ public:
 		return sqrt(xd * xd + yd * yd);
 	}
 
+	static double dist(const point * p, const point * q) {
+		double xd = p->x() - q->x();
+		double yd = p->y() - q->y();
+		return sqrt(xd * xd + yd * yd);
+	}
+
     virtual ~point() {};
+
+	friend std::ostream& operator<<(std::ostream& os, const point &p) {
+        os << std::fixed << std::setprecision(3) << "(" << p.x() << ", " << p.y() << ")";
+        return os;
+	}
+
 protected:
 
 };

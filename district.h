@@ -9,6 +9,10 @@ private:
 public:
     const unsigned int index;
     district(unsigned int index, point location);
+    friend std::ostream& operator<<(std::ostream& os, const district d) {
+        os << "d" << d.index;
+        return os;
+    }
 };
 
 

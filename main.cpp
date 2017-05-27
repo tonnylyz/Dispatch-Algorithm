@@ -4,7 +4,7 @@
 #include "dispatcher.h"
 #include "proc_static.h"
 
-#define DATA_SET "large.txt"
+#define DATA_SET "small.txt"
 
 extern std::vector<restaurant> *restaurants;
 extern std::vector<dispatcher> *dispatchers;
@@ -15,15 +15,15 @@ extern unsigned int containerSize;
 int main() {
     std::cout << "Algorithm Project" << std::endl;
 
-	unsigned int restaurantNum = 0;
-	unsigned int dispatcherNum = 0;
-	unsigned int districtNum = 0;
-	unsigned int orderNum = 0;
+    unsigned int restaurantNum = 0;
+    unsigned int dispatcherNum = 0;
+    unsigned int districtNum = 0;
+    unsigned int orderNum = 0;
 
     restaurants = new std::vector<restaurant>();
     dispatchers = new std::vector<dispatcher>();
     districts = new std::vector<district>();
-	orders = new std::vector<order>();
+    orders = new std::vector<order>();
 
     containerSize = 0;
 
@@ -40,34 +40,34 @@ int main() {
     in >> containerSize;
     in >> orderNum;
 
-	// Initialize restaurant
-	for (unsigned int i = 1; i <= restaurantNum; i++) {
-		double x, y;
-		in >> x;
-		in >> y;
-		restaurant tmp = restaurant(i, point(x, y));
-		restaurants->push_back(tmp);
-	}
+    // Initialize restaurant
+    for (unsigned int i = 1; i <= restaurantNum; i++) {
+        double x, y;
+        in >> x;
+        in >> y;
+        restaurant tmp = restaurant(i, point(x, y));
+        restaurants->push_back(tmp);
+    }
 
-	// Initialize district
-	for (unsigned int i = 1; i <= districtNum; i++) {
-		double x, y;
-		in >> x;
-		in >> y;
-		district tmp = district(i, point(x, y));
-		districts->push_back(tmp);
-	}
+    // Initialize district
+    for (unsigned int i = 1; i <= districtNum; i++) {
+        double x, y;
+        in >> x;
+        in >> y;
+        district tmp = district(i, point(x, y));
+        districts->push_back(tmp);
+    }
 
-	// Initialize order
-	for (unsigned int i = 1; i <= orderNum; i++) {
-		double time;
-		unsigned int r;
-		unsigned int d;
-		in >> time;
-		in >> r;
-		in >> d;
-		orders->push_back(order(i, &(*restaurants)[r - 1], &(*districts)[d - 1], time));
-	}
+    // Initialize order
+    for (unsigned int i = 1; i <= orderNum; i++) {
+        double time;
+        unsigned int r;
+        unsigned int d;
+        in >> time;
+        in >> r;
+        in >> d;
+        orders->push_back(order(i, &(*restaurants)[r - 1], &(*districts)[d - 1], time));
+    }
 
     // Initialize dispatcher
     for (unsigned int i = 1; i <= dispatcherNum; i++) {
@@ -83,8 +83,8 @@ int main() {
 
     process();
 
-	delete restaurants;
-	delete districts;
-	delete orders;
+    delete restaurants;
+    delete districts;
+    delete orders;
     return 0;
 }

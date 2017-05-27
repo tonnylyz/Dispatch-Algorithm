@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <set>
+#include <queue>
 #include "point.h"
 #include "district.h"
 #include "order.h"
@@ -13,7 +14,7 @@ class dispatcher : public point {
 public:
 
     const unsigned int index;
-    enum status {
+    enum __status {
           idle      // Wait for schedule
         , load      // On the way to restaurant
         , deliver   // On the way to district
@@ -21,27 +22,20 @@ public:
 
     dispatcher(unsigned int index, point location);
 
-    order* toLoad;
-    order* toDeliver;
-
     point *target;
-    double timeStart;
-    double timeFinish;
+    std::vector<order *> list;
+    std::queue<point *> path;
 
-    status getStatus() const {
-        return _status;
-    }
+    __status status;
 
-    void setStatus(status s) {
-        _status = s;
-    }
+    void moveTo(point target);
 
-    double moveTo(point target);
+    static std::vector<dispatcher *> get(__status s);
 
-    static std::vector<dispatcher *> get(status s);
-
-private:
-    status _status;
+	friend std::ostream& operator<<(std::ostream& os, const dispatcher &d) {
+		os << "Dispatcher #" << d.index << " " << (point)d << std::endl;
+		return os;
+	}
 };
 
 
