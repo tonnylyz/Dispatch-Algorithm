@@ -3,12 +3,12 @@
 #include "munkres.h"
 
 // Debug utilities
-#define VERBOSE 5
+#define VERBOSE 4
 #define DEBUG(_) if (VERBOSE > (_))
 
 // Parameter
-#define EXPECT_MAX_SERVICE_TIME_RATIO 2
-#define DISPATCHER_USE_PER_SLICE_RATIO 0.8
+#define TIME_SLICE_RATIO 3
+#define AGGRESSIVE_THRESHOLD 0.8
 
 // Global order pointer
 #define GOP(_) (&(orders->at((_).index - 1)))
@@ -18,14 +18,14 @@ extern std::vector<restaurant> *restaurants;
 extern std::vector<dispatcher> *dispatchers;
 extern std::vector<district> *districts;
 extern std::vector<order> *orders;
-extern unsigned int containerSize;
-int timeSliceSize;
 
 static void orderNew(std::vector<order>::iterator &iter, double maxTime, std::vector<order *> &result) {
     for (; iter != orders->end() && (*iter).time < maxTime; iter++) {
         result.push_back(GOP(*iter));
     }
 }
+
+static size_t deliveredOrderCount = 0;
 
 static size_t dispatcherInit = 0;
 static std::queue<dispatcher *> dispatcherToSchedule = std::queue<dispatcher *>();
@@ -43,25 +43,25 @@ static void orderWrap(const std::vector<order *> &newOrder, size_t idc, std::vec
 
         bool done = false;
         for (auto &w : result) {
-
-            if (w.list.size() < containerSize) {
-                double r = w.evaluateOrder(o);
-                if (minWrap == nullptr) {
-                    minServiceTime = r;
-                    minWrap = &w;
-                } else if (r < minServiceTime) {
-                    minServiceTime = r;
-                    minWrap = &w;
-                }
-                done = true;
+            double r = w.evaluateOrder(o);
+            if (r < 0) {
+                continue;
             }
+            if (minWrap == nullptr) {
+                minServiceTime = r;
+                minWrap = &w;
+            } else if (r < minServiceTime) {
+                minServiceTime = r;
+                minWrap = &w;
+            }
+            done = true;
         }
         if (!done) {
             result.push_back(order::wrap(o));
             continue;
         }
 
-        if (minServiceTime < timeSliceSize * EXPECT_MAX_SERVICE_TIME_RATIO) {
+        if (result.size() > ceil(AGGRESSIVE_THRESHOLD * idc)/*minServiceTime < timeSliceSize * EXPECT_MAX_SERVICE_TIME_RATIO*/) {
             minWrap->addOrder(o);
         } else {
             if (result.size() < idc) {
@@ -76,13 +76,13 @@ static void orderWrap(const std::vector<order *> &newOrder, size_t idc, std::vec
     int tss = dispatcherToSchedule.size() < result.size() ? dispatcherToSchedule.size() : result.size();
     for (int i = 0; i < tss; i++) {
         auto d = dispatcherToSchedule.front();
-        dispatcherToSchedule.pop();
         if (dispatcherInit < 50) {
-            d->moveTo(*result[i].path.front());
+            d->moveTo(*result[i].deliverPath.front().p);
             dispatcherInit++;
-        } else {
-            d->target = result[i].path.front();
-        }
+        }/* else {
+            d->target = result[i].deliverPath.front().p;
+        }*/
+        dispatcherToSchedule.pop();
     }
 
 }
@@ -93,92 +93,85 @@ static void matching(std::vector<order::wrap> &w, std::vector<dispatcher *> &d) 
 
     for (size_t i = 0; i < w.size(); i++) {
         for (size_t j = 0; j < d.size(); j++) {
-            matrix(i, j) = w[i].path.front()->distant(*d[j]);
+            matrix(i, j) = w[i].deliverPath.front().p->distant(*d[j]);
         }
     }
 
-    //std::cout << matrix << std::endl;
-
+    DEBUG(5)std::cout << matrix << std::endl;
     Munkres<double> m;
     m.solve(matrix);
-
-    //std::cout << matrix << std::endl;
+    DEBUG(5)std::cout << matrix << std::endl;
 
     for (size_t i = 0; i < w.size(); i++) {
         for (size_t j = 0; j < d.size(); j++) {
             if (matrix(i, j) == 0) {
                 d[j]->status = dispatcher::load;
-                d[j]->target = w[i].path.front();
-                d[j]->list = std::vector<order *>(w[i].list);
-                d[j]->path = std::queue<point *>();
-                for (auto p : w[i].path)
+                d[j]->target = w[i].deliverPath.front().p;
+                d[j]->list = std::vector<order *>(w[i].orderList);
+                d[j]->path = std::queue<order::orderPoint>();
+                for (auto p : w[i].deliverPath)
                     d[j]->path.push(p);
             }
         }
     }
 }
 
-static bool updateDispatcher(size_t tick) {
-
+static bool updateDispatcher(size_t tick, double &cost) {
+    bool result = false;
     for (auto &d : *dispatchers) {
-
-        std::cout << d;
-
-        if (d.target == nullptr) continue;
-
-        double xd = d.target->x() - d.x();
-        double yd = d.target->y() - d.y();
-        xd /= point::dist(d, *(d.target));
-        yd /= point::dist(d, *(d.target));
-        d.moveTo(point(d.x() + xd, d.y() + yd));
-
-        if (d.path.empty()) continue;
-        while (1) {
-            if (d.path.empty()) break;
-            double dist = point::dist(*d.path.front(), d);
-            if (dist > 1) {
-                break;
-            } else if (dist <= 1) {
-                for (auto &o : d.list) {
-                    if (o->finished) continue;
-                    if (d.path.front() == o->from) {
-                        if (d.status == dispatcher::idle) {
-                            d.status = dispatcher::deliver;
-                        }
-                    } else if (d.path.front() == o->to) {
-                        double cost = (tick + dist) - o->time;
-                        std::cout << "Order #" << o->index
-                                  << " done @" << tick + dist
-                                  << " est @" << o->timeEstimated
-                                  << " cost " << cost << std::endl;
-                        o->finished = true;
-                        if (o->index == orders->size()) {
-                            return true;
-                        }
-                    }
+		
+		if (d.target == nullptr) {
+			continue;
+		}
+        double distance = point::dist(d, *(d.target));
+        if (distance >= 1) {
+            double xd = d.target->x() - d.x();
+            double yd = d.target->y() - d.y();
+            xd /= distance;
+            yd /= distance;
+            d.moveTo(point(d.x() + xd, d.y() + yd));
+        } else if (distance < 1) {
+            if (d.path.empty()) continue;
+            while (true) {
+                distance = point::dist(*d.path.front().p, d);
+                if (distance >= 1) break;
+                if (d.path.front().t == order::orderPoint::r) {
+					if (d.path.front().o->time <= tick) {
+						d.path.front().o->loaded = true;
+						d.status = dispatcher::deliver;
+                        std::cout << "[order] o" << d.path.front().o->index
+                                  << " taken from " << *(d.path.front().o->from) << std::endl;
+					} else {
+						break;
+					}
+                } else if (d.path.front().t == order::orderPoint::d) {
+                    d.path.front().o->delivered = true;
+                    cost = tick + 1 - d.path.front().o->time;
+                    std::cout << "[order] o" << d.path.front().o->index
+                              << " done @" << tick + distance
+                              << " est @" << d.path.front().o->timeEstimated
+                              << " cost " << cost << std::endl;
+                    deliveredOrderCount++;
                 }
                 d.path.pop();
-            } else {
-                assert(0);
+                if (d.path.empty()) {
+                    break;
+                }
             }
-
+            if (d.path.empty()) {
+                d.target = nullptr;
+				d.status = dispatcher::idle;
+                d.target = d.list.back()->to;
+            } else {
+                d.target = d.path.front().p;
+            }
         }
-        if (d.path.empty()) {
-            d.target = nullptr;
-            dispatcherToSchedule.push(&d);
-            continue;
-        }
-        d.target = d.path.front();
-        continue;
-
     }
-    return false;
+    return result;
 }
 
 
 void process() {
-    // TODO: Deal with the static problem
-
     double averageWaitTime = 0;
     double maxWaitTime = -1;
     for (auto &o : *orders) {
@@ -192,36 +185,58 @@ void process() {
     }
 
     // Take average estimated wait time as our time slice size
-    timeSliceSize = (int) averageWaitTime;
+    int timeSliceSize = (int)averageWaitTime * TIME_SLICE_RATIO;
 
-    bool finished = false;
+    auto orderIterator = orders->begin();
+    auto leftWrap = std::queue<order::wrap>();
+    size_t lastLeft = orders->size();
+    for (size_t ts = 0; orders->size() > deliveredOrderCount; ts++) {
 
-    std::vector<order>::iterator orderIterator = orders->begin();
-
-
-    for (size_t ts = 0; !finished; ts++) {
-
-        DEBUG(2)std::cout << "Start to schedule for slice " << ts << std::endl;
-
+        DEBUG(2)std::cout << "Start to schedule for slice " << ts
+                          << " | " << orders->size() - deliveredOrderCount << " left" << std::endl;
         auto idleDispatcher = dispatcher::get(dispatcher::idle);
         auto loadDispatcher = dispatcher::get(dispatcher::load);
         auto deliverDispatcher = dispatcher::get(dispatcher::deliver);
+        if (ts != 0 && orders->size() - deliveredOrderCount == lastLeft && deliverDispatcher.size() == 0) {
+			std::cout << "Unexpected invalid order state:" << std::endl;
+            for (auto &o : *orders) {
+                if (!o.delivered) {
+                    std::cout << "[Error] o" << o.index << "\r";
+                }
+            }
+            return;
+        }
+        lastLeft = orders->size() - deliveredOrderCount;
 
         auto newOrder = std::vector<order *>();
         orderNew(orderIterator, (ts + 1) * timeSliceSize, newOrder);
 
         auto newOrderWrap = std::vector<order::wrap>();
-        orderWrap(newOrder, (size_t) (idleDispatcher.size() * DISPATCHER_USE_PER_SLICE_RATIO), newOrderWrap);
+        size_t leftWrapSize = leftWrap.size();
+        while (!leftWrap.empty()) {
+            newOrderWrap.push_back((order::wrap)leftWrap.front());
+            leftWrap.pop();
+        }
+        orderWrap(newOrder, idleDispatcher.size(), newOrderWrap);
 
-        DEBUG(2)for (const auto &w : newOrderWrap) {
+        DEBUG(3)for (const auto &w : newOrderWrap) {
                 std::cout << w;
             }
+        DEBUG(2)std::cout << "new wrap : " << newOrderWrap.size() - leftWrapSize
+                          << " | left wrap : " << leftWrapSize
+                          << " | order : " << newOrder.size()
+                          << " | idle : " << idleDispatcher.size()
+                          << " | load : " << loadDispatcher.size()
+                          << " | deli : " << deliverDispatcher.size() << std::endl;
 
-        DEBUG(2)std::cout << "new order wrap : " << newOrderWrap.size()
-                          << " order : " << newOrder.size()
-                          << " idle : " << idleDispatcher.size()
-                          << " load : " << loadDispatcher.size()
-                          << " deli : " << deliverDispatcher.size() << std::endl;
+        if (newOrderWrap.size() > idleDispatcher.size()) {
+            for (int i = idleDispatcher.size(); i < newOrderWrap.size(); i++) {
+                leftWrap.push(newOrderWrap[i]);
+            }
+            for (int i = idleDispatcher.size(); i < newOrderWrap.size(); i++) {
+                newOrderWrap.erase(newOrderWrap.begin() + i);
+            }
+        }
 
         if (idleDispatcher.size() != 0 && newOrderWrap.size() != 0) {
             matching(newOrderWrap, idleDispatcher);
@@ -230,7 +245,11 @@ void process() {
         for (size_t tick = ts * timeSliceSize;
              tick < (ts + 1) * timeSliceSize;
              tick++) {
-            finished = updateDispatcher(tick);
+            double cost = -1;
+            updateDispatcher(tick, cost);
+            if (cost > maxWaitTime) {
+                maxWaitTime = cost;
+            }
         }
 
         DEBUG(2)std::cout << "=====================================" << std::endl;

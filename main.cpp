@@ -4,7 +4,7 @@
 #include "dispatcher.h"
 #include "proc_static.h"
 
-#define DATA_SET "small.txt"
+#define DATA_SET "data/data00.txt"
 
 extern std::vector<restaurant> *restaurants;
 extern std::vector<dispatcher> *dispatchers;

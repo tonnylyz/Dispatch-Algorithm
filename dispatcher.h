@@ -14,7 +14,7 @@ class dispatcher : public point {
 public:
 
     const unsigned int index;
-    enum __status {
+    enum statusType {
           idle      // Wait for schedule
         , load      // On the way to restaurant
         , deliver   // On the way to district
@@ -24,13 +24,13 @@ public:
 
     point *target;
     std::vector<order *> list;
-    std::queue<point *> path;
+    std::queue<order::orderPoint> path;
 
-    __status status;
+    statusType status;
 
     void moveTo(point target);
 
-    static std::vector<dispatcher *> get(__status s);
+    static std::vector<dispatcher *> get(statusType s);
 
 	friend std::ostream& operator<<(std::ostream& os, const dispatcher &d) {
 		os << "Dispatcher #" << d.index << " " << (point)d << std::endl;

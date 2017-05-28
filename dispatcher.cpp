@@ -9,7 +9,7 @@ dispatcher::dispatcher(unsigned int index, point location) : index(index) {
     status = idle;
     target = nullptr;
     list = std::vector<order *>();
-    path = std::queue<point *>();
+    path = std::queue<order::orderPoint>();
 }
 
 
@@ -19,7 +19,7 @@ void dispatcher::moveTo(point target) {
 }
 
 
-std::vector<dispatcher *> dispatcher::get(__status s) {
+std::vector<dispatcher *> dispatcher::get(statusType s) {
     std::vector<dispatcher *> result = std::vector<dispatcher *>();
     for (auto &d : *dispatchers) {
         if (d.status == s) {
