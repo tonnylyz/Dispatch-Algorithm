@@ -1,5 +1,4 @@
 #include <map>
-#include <functional>
 #include "munkres.h"
 
 // Debug utilities
@@ -18,6 +17,8 @@ extern std::vector<restaurant> *restaurants;
 extern std::vector<dispatcher> *dispatchers;
 extern std::vector<district> *districts;
 extern std::vector<order> *orders;
+
+std::ofstream out;
 
 static void orderNew(std::vector<order>::iterator &iter, double maxTime, std::vector<order *> &result) {
     for (; iter != orders->end() && (*iter).time < maxTime; iter++) {
@@ -97,10 +98,8 @@ static void matching(std::vector<order::wrap> &w, std::vector<dispatcher *> &d) 
         }
     }
 
-    DEBUG(5)std::cout << matrix << std::endl;
     Munkres<double> m;
     m.solve(matrix);
-    DEBUG(5)std::cout << matrix << std::endl;
 
     for (size_t i = 0; i < w.size(); i++) {
         for (size_t j = 0; j < d.size(); j++) {
@@ -139,7 +138,7 @@ static bool updateDispatcher(size_t tick, double &cost) {
 					if (d.path.front().o->time <= tick) {
 						d.path.front().o->loaded = true;
 						d.status = dispatcher::deliver;
-                        std::cout << "[order] o" << d.path.front().o->index
+                        out << "[order] o" << d.path.front().o->index
                                   << " taken from " << *(d.path.front().o->from) << std::endl;
 					} else {
 						break;
@@ -147,7 +146,7 @@ static bool updateDispatcher(size_t tick, double &cost) {
                 } else if (d.path.front().t == order::orderPoint::d) {
                     d.path.front().o->delivered = true;
                     cost = tick + 1 - d.path.front().o->time;
-                    std::cout << "[order] o" << d.path.front().o->index
+                    out << "[order] o" << d.path.front().o->index
                               << " done @" << tick + distance
                               << " est @" << d.path.front().o->timeEstimated
                               << " cost " << cost << std::endl;
@@ -179,9 +178,16 @@ void process() {
     }
     averageWaitTime /= orders->size();
 
+
+    out = std::ofstream("out.txt", std::ios::out);
+    if (!out.is_open()) {
+        std::cerr << "Unable to open file `out.txt`." << std::endl;
+        return;
+    }
+    
     DEBUG(1) {
-        std::cout << "Average estimated wait time: " << averageWaitTime << std::endl;
-        std::cout << "=====================================" << std::endl;
+        out << "Average estimated wait time: " << averageWaitTime << std::endl;
+        out << "=====================================" << std::endl;
     }
 
     // Take average estimated wait time as our time slice size
@@ -192,16 +198,16 @@ void process() {
     size_t lastLeft = orders->size();
     for (size_t ts = 0; orders->size() > deliveredOrderCount; ts++) {
 
-        DEBUG(2)std::cout << "Start to schedule for slice " << ts
+        DEBUG(2)out << "Start to schedule for slice " << ts
                           << " | " << orders->size() - deliveredOrderCount << " left" << std::endl;
         auto idleDispatcher = dispatcher::get(dispatcher::idle);
         auto loadDispatcher = dispatcher::get(dispatcher::load);
         auto deliverDispatcher = dispatcher::get(dispatcher::deliver);
         if (ts != 0 && orders->size() - deliveredOrderCount == lastLeft && deliverDispatcher.size() == 0) {
-			std::cout << "Unexpected invalid order state:" << std::endl;
+			out << "Unexpected invalid order state:" << std::endl;
             for (auto &o : *orders) {
                 if (!o.delivered) {
-                    std::cout << "[Error] o" << o.index << "\r";
+                    out << "[Error] o" << o.index << "\r";
                 }
             }
             return;
@@ -220,9 +226,9 @@ void process() {
         orderWrap(newOrder, idleDispatcher.size(), newOrderWrap);
 
         DEBUG(3)for (const auto &w : newOrderWrap) {
-                std::cout << w;
+                out << w;
             }
-        DEBUG(2)std::cout << "new wrap : " << newOrderWrap.size() - leftWrapSize
+        DEBUG(2)out << "new wrap : " << newOrderWrap.size() - leftWrapSize
                           << " | left wrap : " << leftWrapSize
                           << " | order : " << newOrder.size()
                           << " | idle : " << idleDispatcher.size()
@@ -252,7 +258,7 @@ void process() {
             }
         }
 
-        DEBUG(2)std::cout << "=====================================" << std::endl;
+        DEBUG(2)out << "=====================================" << std::endl;
     }
-    std::cout << "Max waiting time: " << maxWaitTime << std::endl;
+    out << "Max waiting time: " << maxWaitTime << std::endl;
 }
