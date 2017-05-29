@@ -2,7 +2,7 @@
 #include "munkres.h"
 
 // Debug utilities
-#define VERBOSE 4
+#define VERBOSE 2
 #define DEBUG(_) if (VERBOSE > (_))
 
 // Parameter
@@ -18,7 +18,12 @@ extern std::vector<dispatcher> *dispatchers;
 extern std::vector<district> *districts;
 extern std::vector<order> *orders;
 
+// Global output stream
 std::ofstream out;
+
+// Global counter
+static size_t deliveredOrderCount = 0;
+
 
 static void orderNew(std::vector<order>::iterator &iter, double maxTime, std::vector<order *> &result) {
     for (; iter != orders->end() && (*iter).time < maxTime; iter++) {
@@ -26,10 +31,8 @@ static void orderNew(std::vector<order>::iterator &iter, double maxTime, std::ve
     }
 }
 
-static size_t deliveredOrderCount = 0;
 
-static size_t dispatcherInit = 0;
-static std::queue<dispatcher *> dispatcherToSchedule = std::queue<dispatcher *>();
+static std::queue<dispatcher *> initDispatcher = std::queue<dispatcher *>();
 
 static void orderWrap(const std::vector<order *> &newOrder, size_t idc, std::vector<order::wrap> &result) {
 
@@ -44,6 +47,9 @@ static void orderWrap(const std::vector<order *> &newOrder, size_t idc, std::vec
 
         bool done = false;
         for (auto &w : result) {
+/*            if (o->time - w.startTime > 50) {
+                continue;
+            }*/
             double r = w.evaluateOrder(o);
             if (r < 0) {
                 continue;
@@ -74,18 +80,12 @@ static void orderWrap(const std::vector<order *> &newOrder, size_t idc, std::vec
         }
     }
 
-    int tss = dispatcherToSchedule.size() < result.size() ? dispatcherToSchedule.size() : result.size();
-    for (int i = 0; i < tss; i++) {
-        auto d = dispatcherToSchedule.front();
-        if (dispatcherInit < 50) {
-            d->moveTo(*result[i].deliverPath.front().p);
-            dispatcherInit++;
-        }/* else {
-            d->target = result[i].deliverPath.front().p;
-        }*/
-        dispatcherToSchedule.pop();
+    for (auto &w : result) {
+        if (initDispatcher.empty()) break;
+        auto d = initDispatcher.front();
+        d->moveTo(*w.deliverPath.front().p);
+        initDispatcher.pop();
     }
-
 }
 
 
@@ -138,7 +138,7 @@ static bool updateDispatcher(size_t tick, double &cost) {
 					if (d.path.front().o->time <= tick) {
 						d.path.front().o->loaded = true;
 						d.status = dispatcher::deliver;
-                        out << "[order] o" << d.path.front().o->index
+                        DEBUG(3)out << "[order] o" << d.path.front().o->index
                                   << " taken from " << *(d.path.front().o->from) << std::endl;
 					} else {
 						break;
@@ -146,10 +146,10 @@ static bool updateDispatcher(size_t tick, double &cost) {
                 } else if (d.path.front().t == order::orderPoint::d) {
                     d.path.front().o->delivered = true;
                     cost = tick + 1 - d.path.front().o->time;
-                    out << "[order] o" << d.path.front().o->index
-                              << " done @" << tick + distance
-                              << " est @" << d.path.front().o->timeEstimated
-                              << " cost " << cost << std::endl;
+                    out /*<< "[order] o"*/ << d.path.front().o->index
+                              //<< " done @" << tick + distance
+                              //<< " est @" << d.path.front().o->timeEstimated
+                              << "\t" << cost << std::endl;
                     deliveredOrderCount++;
                 }
                 d.path.pop();
@@ -225,9 +225,6 @@ void process() {
         }
         orderWrap(newOrder, idleDispatcher.size(), newOrderWrap);
 
-        DEBUG(3)for (const auto &w : newOrderWrap) {
-                out << w;
-            }
         DEBUG(2)out << "new wrap : " << newOrderWrap.size() - leftWrapSize
                           << " | left wrap : " << leftWrapSize
                           << " | order : " << newOrder.size()
@@ -235,14 +232,14 @@ void process() {
                           << " | load : " << loadDispatcher.size()
                           << " | deli : " << deliverDispatcher.size() << std::endl;
 
-        if (newOrderWrap.size() > idleDispatcher.size()) {
-            for (int i = idleDispatcher.size(); i < newOrderWrap.size(); i++) {
-                leftWrap.push(newOrderWrap[i]);
-            }
-            for (int i = idleDispatcher.size(); i < newOrderWrap.size(); i++) {
-                newOrderWrap.erase(newOrderWrap.begin() + i);
-            }
+        while (newOrderWrap.size() > idleDispatcher.size()) {
+            leftWrap.push(newOrderWrap[idleDispatcher.size()]);
+            newOrderWrap.erase(newOrderWrap.begin() + idleDispatcher.size());
         }
+        int __i = 1;
+        DEBUG(3)for (const auto &w : newOrderWrap) {
+                out << __i++ << w;
+            }
 
         if (idleDispatcher.size() != 0 && newOrderWrap.size() != 0) {
             matching(newOrderWrap, idleDispatcher);
