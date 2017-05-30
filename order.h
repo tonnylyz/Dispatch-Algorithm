@@ -36,95 +36,75 @@ public:
         point * p;
         order * o;
         orderPointType t;
-        orderPoint(point *p, order *o, orderPointType t) : p(p), o(o), t(t) {};
+        double time;
+        orderPoint(point *p, order *o, orderPointType t) : p(p), o(o), t(t), time(0) {};
     };
 
     class wrap {
     private:
-
         std::map<order *, std::vector<orderPoint>> _pathAlt;
         std::map<order *, double> _serviceTime;
+		//std::mutex wmutex;
+
+        void _calcTime(std::vector<orderPoint> &path) {
+            double time = startTime;
+            for (auto iter = path.begin(); iter != path.end(); iter++) {
+                if (iter->t == orderPoint::r) {
+                    if (time < iter->o->time) {
+                        time = iter->o->time;
+                        iter->time = iter->o->time;
+                    } else {
+                        iter->time = time;
+                    }
+                } else if (iter->t == orderPoint::d) {
+                    iter->time = time;
+                }
+                if (iter + 1 != path.end()) {
+                    time += point::dist(iter->p, (iter + 1)->p);
+                }
+            }
+        }
+
+        double _maxTime(const std::vector<orderPoint> &path) {
+            double max = 0;
+            for (auto &op : path) {
+                if (op.t == orderPoint::d && op.time - op.o->time > max) {
+                    max = op.time - op.o->time;
+                }
+            }
+            return max;
+        }
 
         double _evaluate(order *o) {
-			auto path = std::vector<point *>();
-			for (auto &i : deliverPath) {
-				path.push_back(i.p);
-			}
-
-            std::vector<point *>::iterator iter, from, to;
-			int from_index, to_index;
-            //TODO: We never insert a restaurant to the end of a path
-            from = path.begin();
-            double loadCost = point::dist(path.front(), o->from);
-            for (iter = path.begin(); iter != path.end() - 1; iter++) {
-                double a = point::dist(o->from, *iter);
-                double b = point::dist(o->from, *(iter + 1));
-                double c = point::dist(*iter, *(iter + 1));
-                double cost = a + b - c;
-                if (cost < loadCost) {
-                    from = iter + 1;
-                    loadCost = cost;
+            double minTime = 0;
+            std::vector<orderPoint> minPath;
+            for (size_t from = deliverPath.size();; from--) {
+                if (from != deliverPath.size()
+                    && deliverPath[from].t == orderPoint::r
+                    && o->timeEstimated < deliverPath[from].time) {
+                    break;
                 }
-            }
-            from = path.insert(from, (point *) o->from);
-			from_index = from - path.begin();
-            to = path.end();
-            double deliverCost = point::dist(path.back(), o->to);
-
-            for (iter = from; iter != path.end() - 1; iter++) {
-                double a = point::dist(o->to, *iter);
-                double b = point::dist(o->to, *(iter + 1));
-                double c = point::dist(*iter, *(iter + 1));
-                double cost = a + b - c;
-                if (cost < deliverCost) {
-                    to = iter + 1;
-                    deliverCost = cost;
-                }
-            }
-
-            to = path.insert(to, (point *) o->to);
-			to_index = to - path.begin();
-            orderList.push_back(o);
-
-            std::map<order *, double> timeMap;
-
-            double time = startTime;
-            for (iter = path.begin(); iter != path.end(); iter++) {
-                for (auto &order : orderList) {
-                    if (*iter == order->from) {
-                        if (time < order->time) {
-                            time = order->time;
-                        }
-                    }
-                    if (*iter == order->to) {
-                        timeMap[order] = time - startTime;
-                    }
-                    if (iter + 1 != path.end()) {
-                        time += point::dist(*iter, *(iter + 1));
+                for (size_t to = from + 1; to <= deliverPath.size() + 1; to++) {
+                    auto path = std::vector<orderPoint>(deliverPath);
+                    path.emplace(path.begin() + from, o->from, o, orderPoint::r);
+                    path.emplace(path.begin() + to,   o->to,   o, orderPoint::d);
+                    _calcTime(path);
+                    double time = _maxTime(path);
+                    if (minTime == 0) {
+                        minTime = time;
+                        minPath = std::vector<orderPoint>(path);
+                    } else if (time < minTime) {
+                        minTime = time;
+                        minPath = std::vector<orderPoint>(path);
                     }
                 }
-            }
-
-            double max = 0;
-            for (auto i = timeMap.begin(); i != timeMap.end(); i++) {
-                if (i->second > max) {
-                    max = i->second;
+                if (from == 0) {
+                    break;
                 }
             }
-
-            orderList.pop_back();
-
-            _pathAlt[o] = std::vector<orderPoint>(deliverPath);
-            _pathAlt[o].insert(
-                    _pathAlt[o].begin() + from_index,
-                    orderPoint(o->from, o, orderPoint::r)
-            );
-            _pathAlt[o].insert(
-                    _pathAlt[o].begin() + to_index,
-                    orderPoint(o->to, o, orderPoint::d)
-            );
-            _serviceTime[o] = max;
-            return max;
+            _pathAlt[o] = std::vector<orderPoint>(minPath);
+            _serviceTime[o] = minTime;
+            return minTime;
         };
 
         bool _full() {
@@ -141,10 +121,8 @@ public:
             }
             return maxLoaded >= containerSize;
         }
+
     public:
-
-
-
         double startTime;
         std::vector<order *> orderList;
         std::vector<orderPoint> deliverPath;
@@ -156,13 +134,14 @@ public:
             startTime = o->time;
 
             deliverPath = std::vector<orderPoint>();
-            deliverPath.push_back(orderPoint((point *) o->from, o, orderPoint::r));
-            deliverPath.push_back(orderPoint((point *) o->to,   o, orderPoint::d));
+
+            deliverPath.emplace_back((point *) o->from, o, orderPoint::r);
+            deliverPath.emplace_back((point *) o->to,   o, orderPoint::d);
+            _calcTime(deliverPath);
 
             _pathAlt = std::map<order *, std::vector<orderPoint>>();
             _serviceTime = std::map<order *, double>();
         }
-
 
         double evaluateOrder(order *o) {
             if (_full()) {
@@ -174,21 +153,17 @@ public:
             return _evaluate(o);
         }
 
-
-
         void addOrder(order *o) {
             if (_pathAlt.count(o) == 0) {
                 std::cerr << "A route without evaluation added!" << std::endl;
                 return;
             }
-
+            if (o->time < startTime) {
+                std::cerr << "A route ahead added!" << std::endl;
+                return;
+            }
             orderList.push_back(o);
             deliverPath = _pathAlt[o];
-
-            if (o->time < startTime) {
-                startTime = o->time;
-            }
-
             _pathAlt = std::map<order *, std::vector<orderPoint>>();
             _serviceTime = std::map<order *, double>();
         }
