@@ -1,4 +1,4 @@
-#include <map>
+#pragma once
 #include "munkres.h"
 #include <thread>
 #include <mutex>
@@ -25,54 +25,77 @@ static double maxCost = 0;
 static std::queue<dispatcher *> initDispatcher = std::queue<dispatcher *>();
 
 std::mutex mutex;
-static double __mst = 0;
-static order::wrap *__mw = nullptr;
-
-
-void __eval(order *o, order::wrap *w) {
-	double r = w->evaluateOrder(o);
-	if (r < 0) return;
-	mutex.lock();
-	if (__mw == nullptr) {
-		__mst = r;
-		__mw = w;
-	} else if (r < __mst) {
-		__mst = r;
-		__mw = w;
-	}
-	mutex.unlock();
-}
 
 static void orderWrap(std::vector<order::wrap> &result) {
-    int c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+	auto t1 = 0, t2 = 0;
     for (auto &o : *orders) {
         if (result.size() < dispatchers->size()) {
             result.push_back(order::wrap(&o));
             continue;
         }
-        __mst = 0;
-        __mw = nullptr;
-		auto threads = new std::thread[result.size()];
-		for (size_t i = 0; i < result.size(); i++) {
-			threads[i] = std::thread(__eval, &o, &result[i]);
-		}
-		for (size_t i = 0; i < result.size(); i++) {
-			threads[i].join();
-		}
-        if (__mw == nullptr) {
-            result.push_back(order::wrap(&o));
-            c0++;
-        } else {
-			__mw->addOrder(&o);
-            c1++;
-        }
-		if (o.index % 100 == 0)
-			std::cout << o.index << std::endl;
-    }
-    std::cout << c0 << "\t" << c1 << "\t" << c2 << "\t" << c3 << std::endl;
-    std::cout << result.size() << std::endl;
-    assert(result.size() == dispatchers->size());
 
+		if (o.index % 300 == 0)
+			std::cout << "[" << o.index << "/" << orders->size() << "]" << std::endl;
+
+		// Quick Response: try add to the end (for low demand)
+		double mrt = 0;
+		order::wrap *mrtw = nullptr;
+		for (auto &w : result)
+		{
+			auto responseTime = o.time - w.deliverPath.back().time - o.from->distant(*w.deliverPath.back().p);
+			if (abs(responseTime) < 10)
+			{
+				responseTime = abs(responseTime);
+			}
+			if (responseTime > 0 && (mrtw == nullptr || responseTime < mrt))
+			{
+				mrt = responseTime;
+				mrtw = &w;
+			}
+		}
+		if (mrtw != nullptr)
+		{
+			mrtw->pushBack(&o);
+			t1++;
+			continue;
+		}
+
+		// Insert Try: for add into the path (for high demand)
+		std::vector<std::thread> workers;
+
+		double mic;
+		order::wrap *micw = nullptr;
+		for (auto &w : result)
+		{
+			workers.push_back(std::thread([&]()
+			{
+				auto insertCost = w.evaluateInsert(&o);
+				if (insertCost == -1)
+				{
+					return;
+				}
+				if (micw == nullptr || insertCost < mic)
+				{
+					mutex.lock();
+					mic = insertCost;
+					micw = &w;
+					mutex.unlock();
+				}
+			}));
+
+		}
+
+		std::for_each(workers.begin(), workers.end(), [](std::thread &t)
+		{
+			t.join();
+		});
+		micw->insert(&o);
+		t2++;
+    }
+	std::cout << "=====================================" << std::endl;
+	std::cout << "QR\tIT" << std::endl;
+	std::cout << t1 << "\t" << t2 << std::endl;
+	std::cout << "=====================================" << std::endl;
     for (auto &w : result) {
         if (initDispatcher.empty()) break;
         auto d = initDispatcher.front();
@@ -83,24 +106,23 @@ static void orderWrap(std::vector<order::wrap> &result) {
         d->path = std::queue<order::orderPoint>();
         for (auto p : w.deliverPath)
             d->path.push(p);
-
         initDispatcher.pop();
     }
 }
 
-void process() {
+inline void process() {
     out = std::ofstream("out.txt", std::ios::out);
     if (!out.is_open()) {
         std::cerr << "Unable to open file `out.txt`." << std::endl;
         return;
     }
-
+	std::cout << "Start processing" << std::endl;
     auto wrap = std::vector<order::wrap>();
     orderWrap(wrap);
     double max = 0;
     size_t orderCount = 0;
     for (auto &w : wrap) {
-        //std::cout << w << std::endl;
+        std::cout << w << std::endl;
         for (auto &p : w.deliverPath) {
             if (p.t == order::orderPoint::d) {
                 out << p.o->index << "\t" << p.time - p.o->time << std::endl;
@@ -110,5 +132,7 @@ void process() {
         }
         orderCount += w.orderList.size();
     }
-    std::cout << max << "\t" << orderCount << std::endl;
+
+	std::cout << "=====================================" << std::endl;
+    std::cout << "Final result: " << max << std::endl;
 }

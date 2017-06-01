@@ -4,16 +4,14 @@
 #include "dispatcher.h"
 #include "proc_static.h"
 
-#define DATA_SET "data/data00.txt"
-
 extern std::vector<restaurant> *restaurants;
 extern std::vector<dispatcher> *dispatchers;
 extern std::vector<district> *districts;
 extern std::vector<order> *orders;
 extern unsigned int containerSize;
 
-int main() {
-    std::cout << "Algorithm Project" << std::endl;
+int main(int argc, char **argv) {
+    std::cout << "Algorithm Project build (" << __TIMESTAMP__ << ")" << std::endl;
 
     unsigned int restaurantNum = 0;
     unsigned int dispatcherNum = 0;
@@ -24,13 +22,18 @@ int main() {
     dispatchers = new std::vector<dispatcher>();
     districts = new std::vector<district>();
     orders = new std::vector<order>();
-
     containerSize = 0;
 
+	char testSet[1024];
+    if (argc != 2) {
+        std::cerr << "No test data set specified." << std::endl;
+		std::cout << "Use stdin to specify test data file:" << std::endl;
+		std::cin >> testSet;
+    }
 
-    std::ifstream in(DATA_SET, std::ios::in);
+    std::ifstream in(argc == 2 ? argv[1] : testSet, std::ios::in);
     if (!in.is_open()) {
-        std::cerr << "Unable to open file '" << DATA_SET << "'." << std::endl;
+        std::cerr << "Unable to open file '" << (argc == 2 ? argv[1] : testSet) << "'." << std::endl;
         return 0;
     }
 
