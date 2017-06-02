@@ -1,8 +1,4 @@
-#include <fstream>
-#include <iostream>
-
-#include "dispatcher.h"
-#include "proc_static.h"
+#include "proc.h"
 
 extern std::vector<restaurant> *restaurants;
 extern std::vector<dispatcher> *dispatchers;
@@ -24,16 +20,28 @@ int main(int argc, char **argv) {
     orders = new std::vector<order>();
     containerSize = 0;
 
-	char testSet[1024];
-    if (argc != 2) {
-        std::cerr << "No test data set specified." << std::endl;
-		std::cout << "Use stdin to specify test data file:" << std::endl;
-		std::cin >> testSet;
+    if (argc != 3) {
+        std::cerr << "Usage: algorithm [static|dynamic] [data file]" << std::endl;
+		return 0;
     }
 
-    std::ifstream in(argc == 2 ? argv[1] : testSet, std::ios::in);
+	if (std::string(argv[1]) == std::string("static"))
+	{
+		mode = Static;
+	}
+	else if (std::string(argv[1]) == std::string("dynamic"))
+	{
+		mode = Dynamic;
+	}
+	else
+	{
+		std::cerr << "Usage: algorithm [static|dynamic] [data file]" << std::endl;
+		return 0;
+	}
+
+    std::ifstream in(argv[2], std::ios::in);
     if (!in.is_open()) {
-        std::cerr << "Unable to open file '" << (argc == 2 ? argv[1] : testSet) << "'." << std::endl;
+        std::cerr << "Unable to open file '" << argv[2] << "'." << std::endl;
         return 0;
     }
 

@@ -1,7 +1,11 @@
 #pragma once
-#include "munkres.h"
+#include <fstream>
+#include <iostream>
 #include <thread>
 #include <mutex>
+#include "munkres.h"
+#include "order.h"
+#include "dispatcher.h"
 
 // Debug utilities
 #define VERBOSE 2
@@ -16,18 +20,20 @@ extern std::vector<dispatcher> *dispatchers;
 extern std::vector<district> *districts;
 extern std::vector<order> *orders;
 
+enum __mode { Static, Dynamic };
+__mode mode;
+
 // Global output stream
 std::ofstream out;
 
 // Global counter
 static size_t deliveredOrderCount = 0;
 static double maxCost = 0;
-static std::queue<dispatcher *> initDispatcher = std::queue<dispatcher *>();
 
 std::mutex mutex;
 
 static void orderWrap(std::vector<order::wrap> &result) {
-	auto t1 = 0, t2 = 0;
+	auto t1 = 0, t2 = 0, t3 = 0;
     for (auto &o : *orders) {
         if (result.size() < dispatchers->size()) {
             result.push_back(order::wrap(&o));
@@ -69,7 +75,7 @@ static void orderWrap(std::vector<order::wrap> &result) {
 		{
 			workers.push_back(std::thread([&]()
 			{
-				auto insertCost = w.evaluateInsert(&o);
+				auto insertCost = w.evaluateInsert(&o, mode == Dynamic);
 				if (insertCost == -1)
 				{
 					return;
@@ -89,25 +95,67 @@ static void orderWrap(std::vector<order::wrap> &result) {
 		{
 			t.join();
 		});
-		micw->insert(&o);
-		t2++;
+		if (micw != nullptr)
+		{
+			micw->insert(&o);
+			t2++;
+			continue;
+		}
+
+		// Second chance
+		for (auto &w : result)
+		{
+			auto responseTime = o.time - w.deliverPath.back().time - o.from->distant(*w.deliverPath.back().p);
+			if (mrtw == nullptr || responseTime < mrt)
+			{
+				mrt = responseTime;
+				mrtw = &w;
+			}
+		}
+		mrtw->pushBack(&o);
+		t3++;
     }
 	std::cout << "=====================================" << std::endl;
-	std::cout << "QR\tIT" << std::endl;
-	std::cout << t1 << "\t" << t2 << std::endl;
+	std::cout << "QR\tIT\tSC" << std::endl;
+	std::cout << t1 << "\t" << t2 << "\t" << t3 << std::endl;
 	std::cout << "=====================================" << std::endl;
-    for (auto &w : result) {
-        if (initDispatcher.empty()) break;
-        auto d = initDispatcher.front();
-        d->moveTo(*w.deliverPath.front().p);
-        d->status = dispatcher::load;
-        d->target = w.deliverPath.front().p;
-        d->list = std::vector<order *>(w.orderList);
-        d->path = std::queue<order::orderPoint>();
-        for (auto p : w.deliverPath)
-            d->path.push(p);
-        initDispatcher.pop();
-    }
+
+	if (mode == Dynamic)
+	{
+		auto targets = std::vector<restaurant *>();
+		for (auto &r : *restaurants)
+			targets.push_back(&r);
+		random_shuffle(targets.begin(), targets.end());
+		targets.resize(dispatchers->size());
+		for (size_t i = 0; i < targets.size(); i++)
+		{
+			dispatchers->at(i).moveTo(static_cast<point>(*targets[i]));
+		}
+		Matrix<double> matrix(result.size(), dispatchers->size());
+		for (size_t i = 0; i < result.size(); i++) {
+			for (size_t j = 0; j < dispatchers->size(); j++) {
+				matrix(i, j) = result[i].deliverPath.front().p->distant(static_cast<point>(dispatchers->at(j)));
+			}
+		}
+		Munkres<double> m;
+		m.solve(matrix);
+		for (size_t i = 0; i < result.size(); i++) {
+			for (size_t j = 0; j < dispatchers->size(); j++) {
+				if (matrix(i, j) == 0) {
+					result[i].addOffset(result[i].deliverPath.front().p->distant(static_cast<point>(dispatchers->at(j))));
+					dispatchers->at(j).path = &result[i].deliverPath;
+				}
+			}
+		}
+	}
+	else if (mode == Static)
+	{
+		for (size_t i = 0; i < result.size(); i++)
+		{
+			dispatchers->at(i).moveTo(*result[i].deliverPath.front().p);
+			dispatchers->at(i).path = &result[i].deliverPath;
+		}
+	}
 }
 
 inline void process() {
@@ -120,19 +168,24 @@ inline void process() {
     auto wrap = std::vector<order::wrap>();
     orderWrap(wrap);
     double max = 0;
-    size_t orderCount = 0;
-    for (auto &w : wrap) {
-        std::cout << w << std::endl;
-        for (auto &p : w.deliverPath) {
-            if (p.t == order::orderPoint::d) {
-                out << p.o->index << "\t" << p.time - p.o->time << std::endl;
-                if (p.time - p.o->time > max)
-                    max = p.time - p.o->time;
-            }
-        }
-        orderCount += w.orderList.size();
-    }
 
+	for (auto &d : *dispatchers)
+	{
+		out << d.index << " ";
+		order::wrap::printPath(out, d.path, static_cast<point>(d));
+		for (auto &p : *d.path) {
+			if (p.t == order::orderPoint::d) {
+				if (p.time - p.o->time > max)
+					max = p.time - p.o->time;
+			}
+		}
+	}
+	for (auto &w : wrap)
+	{
+		std::cout << w;
+	}
+	assert(dispatchers->size() == wrap.size());
 	std::cout << "=====================================" << std::endl;
     std::cout << "Final result: " << max << std::endl;
+	out << max << std::endl;
 }

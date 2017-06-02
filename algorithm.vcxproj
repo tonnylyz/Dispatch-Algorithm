@@ -126,8 +126,7 @@
     <ClInclude Include="munkres.h" />
     <ClInclude Include="order.h" />
     <ClInclude Include="point.h" />
-    <ClInclude Include="proc_dynamic.h" />
-    <ClInclude Include="proc_static.h" />
+    <ClInclude Include="proc.h" />
     <ClInclude Include="restaurant.h" />
   </ItemGroup>
   <ItemGroup>

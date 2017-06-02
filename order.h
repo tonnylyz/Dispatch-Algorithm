@@ -8,7 +8,6 @@
 #include "point.h"
 #include "district.h"
 #include "restaurant.h"
-#include <cassert>
 
 extern unsigned int containerSize;
 
@@ -21,10 +20,7 @@ public:
     restaurant *from;
     district *to;
 
-    order(unsigned int index, restaurant *r, district *d, double time);
-
-    bool loaded;
-    bool delivered;
+	explicit order(unsigned int index, restaurant *r, district *d, double time);
 
     class orderPoint {
     public:
@@ -87,6 +83,19 @@ public:
             return maxLoaded >= containerSize;
         }
 
+		std::vector<orderPoint>::iterator _currentPosition(double time)
+        {
+			auto result = deliverPath.end();
+	        for (auto iter = deliverPath.begin(); iter != deliverPath.end(); ++iter)
+	        {
+		        if (iter->time > time)
+		        {
+					result = iter + 1;
+		        }
+	        }
+			return result;
+        }
+
     public:
         double startTime;
         std::vector<order *> orderList;
@@ -107,12 +116,15 @@ public:
             _pathAlt = std::map<order *, std::vector<orderPoint>>();
         }
 
-        double evaluateInsert(order *o)
+		double evaluateInsert(order *o, bool dynamic = false)
         {
 			double minTime = 0;
 			std::vector<orderPoint> minPath;
 			// Here will not insert to end
-			for (auto from = deliverPath.size() - 1;; from--) {
+
+			for (auto from = dynamic ? _currentPosition(o->time) - deliverPath.begin() : (deliverPath.size() - 1);; from--) {
+				if (from >= deliverPath.size())
+					return -1;
 				if (deliverPath[from].t == orderPoint::r
 					&& o->time < deliverPath[from].time) {
 					break;
@@ -160,6 +172,12 @@ public:
             _pathAlt = std::map<order *, std::vector<orderPoint>>();
         }
 
+		void addOffset(double offset)
+	    {
+			startTime += offset;
+			_calcTime(deliverPath);
+	    }
+
         friend std::ostream &operator<<(std::ostream &os, const wrap &w) {
             os << "[wrap] size: " << w.orderList.size()
                << std::endl;
@@ -179,6 +197,46 @@ public:
 			os << std::endl;
             return os;
         }
+
+		static void printPath(std::ostream &os, std::vector<orderPoint> *path,  point start)
+		{
+			if (path->front().p->x() != start.x() || path->front().p->y() != start.y())
+			{
+				os << path->size() + 1 << std::endl;
+				os << start.x() << " ";
+				os << start.y() << " ";
+				os << "0 ";
+				os << "0 ";
+				os << "0" << std::endl;
+			}
+			else
+			{
+				os << path->size() << std::endl;
+			}
+			
+			size_t load = 0;
+			for (auto p = path->begin(); p != path->end(); ++p)
+			{
+				if (p->t == orderPoint::r)
+				{
+					load++;
+				}
+				if (p->t == orderPoint::d)
+				{
+					load--;
+				}
+				os << p->p->x() << " ";
+				os << p->p->y() << " ";
+
+				if (p != path->begin())
+					os << (p - 1)->time + point::dist(p->p, (p - 1)->p) << " ";
+				else
+					os << point::dist(p->p, &start) << " ";
+				os << p->time << " ";
+
+				os << load << std::endl;
+			}
+	    }
     };
 };
 

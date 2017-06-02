@@ -10,7 +10,7 @@ protected:
     double _x;
     double _y;
 public:
-    point(double x = 0.0, double y = 0.0) {
+	explicit point(double x = 0.0, double y = 0.0) {
         _x = x;
         _y = y;
     }
@@ -24,6 +24,12 @@ public:
 		double yd = _y - p.y();
 		return sqrt(xd * xd + yd * yd);
 	}
+	
+	void moveTo(const point p)
+    {
+		_x = p.x();
+		_y = p.y();
+    }
 
 	static double dist(const point p, const point q) {
 		double xd = p.x() - q.x();
