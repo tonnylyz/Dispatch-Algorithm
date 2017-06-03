@@ -33,12 +33,6 @@
     <ClCompile Include="restaurant.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="matrix.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="munkres.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dispatcher.h">
@@ -54,12 +48,6 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="restaurant.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="matrix.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="munkres.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="proc.h">

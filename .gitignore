@@ -3,3 +3,4 @@ cmake-build-debug/*
 *.o
 x86/*
 x64/*
+algorithm.VC.db

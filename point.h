@@ -10,49 +10,30 @@ protected:
     double _x;
     double _y;
 public:
-	explicit point(double x = 0.0, double y = 0.0) {
-        _x = x;
-        _y = y;
-    }
+    explicit point(double x = 0.0, double y = 0.0);
 
-	double x() const { return _x; }
+    double x() const { return _x; }
 
-	double y() const { return _y; }
+    double y() const { return _y; }
 
-	double distant(const point p) const {
-		double xd = _x - p.x();
-		double yd = _y - p.y();
-		return sqrt(xd * xd + yd * yd);
-	}
-	
-	void moveTo(const point p)
-    {
-		_x = p.x();
-		_y = p.y();
-    }
+    double distant(const point p) const;
 
-	static double dist(const point p, const point q) {
-		double xd = p.x() - q.x();
-		double yd = p.y() - q.y();
-		return sqrt(xd * xd + yd * yd);
-	}
+    void moveTo(const point p);
 
-	static double dist(const point * p, const point * q) {
-		double xd = p->x() - q->x();
-		double yd = p->y() - q->y();
-		return sqrt(xd * xd + yd * yd);
-	}
+    static double dist(const point p, const point q);
+
+    static double dist(const point *p, const point *q);
 
     virtual ~point() {};
 
-	friend std::ostream& operator<<(std::ostream& os, const point &p) {
+    bool operator!=(const point &rhs) const {
+        return _x != rhs._x || _y != rhs._y;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const point &p) {
         os << std::fixed << std::setprecision(3) << "(" << p.x() << ", " << p.y() << ")";
         return os;
-	}
-
-protected:
-
+    }
 };
-
 
 #endif //ALGORITHM_POINT_H
