@@ -10,6 +10,8 @@
 #include "restaurant.h"
 #include <cassert>
 
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 extern unsigned int containerSize;
 
 class order {
@@ -26,35 +28,110 @@ public:
     class orderPoint {
     public:
         enum orderPointType {
-            r,
-            d, m
+             r
+        	,d
+        	,m
         };
-        point * p;
-        order * o;
-        orderPointType t;
-        double time;
-        orderPoint(point *p, order *o, orderPointType t) : p(p), o(o), t(t), time(0) {};
+        point * p; // point pointer
+        order * o; // order pointer
+        orderPointType t; // type
+		double timeEnter;
+        double timeLeave;
+        orderPoint(point *p, order *o, orderPointType t) : p(p), o(o), t(t), timeEnter(0), timeLeave(0) {};
     };
 
     class wrap {
     private:
         std::map<order *, std::vector<orderPoint>> _pathAlt;
 
-        void _calcTime(std::vector<orderPoint> &path) const
+        void _calcTime(std::vector<orderPoint> &path, bool dynamic) const
         {
 	        auto time = startTime;
             for (auto iter = path.begin(); iter != path.end(); ++iter) {
-                if (iter->t == orderPoint::r) {
-                    if (time < iter->o->time) {
-                        time = iter->o->time;
-                    }
-					iter->time = time;
-                } else/* if (iter->t == orderPoint::d or m) */{
-                    iter->time = time;
-                }
-                if (iter + 1 != path.end()) {
-                    time += point::dist(iter->p, (iter + 1)->p);
-                }
+	            switch (iter->t)
+	            {
+				case orderPoint::r:
+					if (dynamic)
+					{
+						iter->timeEnter = time;
+						if (iter != path.end() - 1)
+						{
+							switch ((iter + 1)->t)
+							{
+							case orderPoint::r: 
+								assert(MAX(time, iter->o->time) >= (iter + 1)->o->time);
+								iter->timeLeave = MAX(MAX(time, iter->o->time), (iter + 1)->o->time);
+								break;
+							case orderPoint::d: 
+								iter->timeLeave = MAX(time, iter->o->time);
+								break;
+							case orderPoint::m:
+								iter->timeLeave = MAX(time, iter->o->time);
+								break;
+							}
+						}
+						else
+						{
+							iter->timeLeave = time;
+						}
+					}
+					else
+					{
+						iter->timeEnter = time;
+						iter->timeLeave = MAX(time, iter->o->time);
+					}
+					break;
+				case orderPoint::d:
+					if (dynamic)
+					{
+						iter->timeEnter = time;
+						if (iter != path.end() - 1)
+						{
+							switch ((iter + 1)->t)
+							{
+							case orderPoint::r:
+								iter->timeLeave = MAX(time, (iter + 1)->o->time);
+								break;
+							case orderPoint::d:
+								iter->timeLeave = time;
+								break;
+							case orderPoint::m:
+								iter->timeLeave = MAX(time, (iter + 1)->o->time);
+								break;
+							}
+						}
+						else
+						{
+							iter->timeLeave = time;
+						}
+					}
+					else
+					{
+						iter->timeEnter = time;
+						iter->timeLeave = time;
+					}
+					break;
+				case orderPoint::m:
+					if (dynamic)
+					{
+						iter->timeEnter = time;
+						iter->timeLeave = time;
+					}
+					break;
+	            }
+
+				if (iter == path.end() - 1)
+					break;
+				if (dynamic)
+				{
+					time = MAX(iter->timeEnter, iter->timeLeave);
+					time += point::dist(iter->p, (iter + 1)->p);
+				}
+				else
+				{
+					time = MAX(iter->timeEnter, iter->timeLeave);
+					time += point::dist(iter->p, (iter + 1)->p);
+				}
             }
         }
 
@@ -62,8 +139,8 @@ public:
             double max = 0;
             for (auto iter = path.begin() + from; iter != path.end(); ++iter) {
 	            auto op = *iter;
-                if (op.t == orderPoint::d && op.time - op.o->time > max) {
-                    max = op.time - op.o->time;
+                if (op.t == orderPoint::d) {
+                    max += op.timeLeave - op.o->time;
                 }
             }
             return max;
@@ -88,7 +165,7 @@ public:
         {
 			for (size_t i = 0; i < deliverPath.size(); i++)
 			{
-				if (deliverPath[i].time > time)
+				if (deliverPath[i].timeLeave > time)
 				{
 					return i;
 				}
@@ -100,7 +177,7 @@ public:
         {
 			auto a = deliverPath.begin() + _currentIndex(time) - 1;
 			auto b = deliverPath.begin() + _currentIndex(time);
-			double offset = time - a->time;
+			double offset = time - a->timeLeave;
 			double distance = point::dist(a->p, b->p);
 			double ratio = offset / distance;
 			double xd = b->p->x() - a->p->x();
@@ -127,12 +204,12 @@ public:
 
             deliverPath.emplace_back(o->from, o, orderPoint::r);
             deliverPath.emplace_back(o->to,   o, orderPoint::d);
-            _calcTime(deliverPath);
+            _calcTime(deliverPath, false);
 
             _pathAlt = std::map<order *, std::vector<orderPoint>>();
         }
 
-		double evaluateInsert(order *o, bool dynamic = false)
+		double evaluateInsert(order *o, bool dynamic)
         {
 			double minTime = 0;
 			std::vector<orderPoint> minPath;
@@ -141,12 +218,8 @@ public:
 			for (auto from = dynamic ? _currentIndex(o->time) : deliverPath.size() - 1;; dynamic ? from++ : from--) {
 				if (from == -1)
 					return -1;
-				if (from >= deliverPath.size())
+				if (dynamic && from >= deliverPath.size())
 					break;
-				if (!dynamic && deliverPath[from].t == orderPoint::r
-					&& o->time < deliverPath[from].time) {
-					break;
-				}
 				for (auto to = from + 1; to <= deliverPath.size() + 1; to++) {
 					auto path = std::vector<orderPoint>(deliverPath);
 
@@ -155,13 +228,12 @@ public:
 					path.emplace(path.begin() + to, o->to, o, orderPoint::d);
 					if (dynamic && from == _currentIndex(o->time))
 					{
-						//std::cout << from << to << deliverPath.size() << std::endl;
-						path.emplace(path.begin() + from, _currentPoint(o->time), nullptr, orderPoint::m);
+						path.emplace(path.begin() + from, _currentPoint(o->time), (path.begin() + from + 1)->o, orderPoint::m);
 					}
 
 					if (_full(path) > containerSize)
 						continue;
-					_calcTime(path);
+					_calcTime(path, dynamic);
 					auto time = _maxTime(path, from) - _maxTime(deliverPath, from);
 					if (minTime == 0) {
 						minTime = time;
@@ -172,6 +244,10 @@ public:
 						minPath = std::vector<orderPoint>(path);
 					}
 				}
+				if (!dynamic && deliverPath[from].t == orderPoint::r
+					&& o->time < deliverPath[from].timeEnter) {
+					break;
+				}
 				if (from == 0) {
 					break;
 				}
@@ -180,12 +256,12 @@ public:
 			return minTime;
         }
 
-		void pushBack(order *o)
+		void pushBack(order *o, bool dynamic)
 	    {
 			orderList.push_back(o);
 			deliverPath.emplace_back(o->from, o, orderPoint::r);
 			deliverPath.emplace_back(o->to, o, orderPoint::d);
-			_calcTime(deliverPath);
+			_calcTime(deliverPath, dynamic);
 
 			_pathAlt = std::map<order *, std::vector<orderPoint>>();
 	    }
@@ -195,15 +271,16 @@ public:
                 std::cerr << "A route without evaluation added!" << std::endl;
                 return;
             }
-            orderList.push_back(o);
+			assert(o->time >= startTime);
+			            orderList.push_back(o);
             deliverPath = _pathAlt[o];
             _pathAlt = std::map<order *, std::vector<orderPoint>>();
         }
 
-		void addOffset(double offset)
+		void setStartTime(double offset, bool dynamic)
 	    {
-			startTime += offset;
-			_calcTime(deliverPath);
+			startTime = offset;
+			_calcTime(deliverPath, dynamic);
 	    }
 
         friend std::ostream &operator<<(std::ostream &os, const wrap &w) {
@@ -220,6 +297,9 @@ public:
                     os << *r << " ";
                 } else if (district *d = dynamic_cast<district *>(p.p)) {
                     os << *d << " ";
+                } else
+                {
+					os << "m" << *p.p << " ";
                 }
             }
 			os << std::endl;
@@ -256,11 +336,8 @@ public:
 				os << p->p->x() << " ";
 				os << p->p->y() << " ";
 
-				if (p != path->begin())
-					os << (p - 1)->time + point::dist(p->p, (p - 1)->p) << " ";
-				else
-					os << point::dist(p->p, &start) << " ";
-				os << p->time << " ";
+				os << p->timeEnter << " ";
+				os << p->timeLeave << " ";
 				assert(load <= containerSize);
 
 				os << load << std::endl;

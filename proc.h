@@ -42,18 +42,17 @@ static void orderWrap(std::vector<order::wrap> &result) {
 
 		if (o.index % 300 == 0)
 			std::cout << "[" << o.index << "/" << orders->size() << "]" << std::endl;
-
+		
 		// Quick Response: try add to the end (for low demand)
 		double mrt = 0;
 		order::wrap *mrtw = nullptr;
 		for (auto &w : result)
 		{
-			auto responseTime = o.time - w.deliverPath.back().time - o.from->distant(*w.deliverPath.back().p);
-			if (abs(responseTime) < 10)
-			{
-				responseTime = abs(responseTime);
-			}
-			if (responseTime > 0 && (mrtw == nullptr || responseTime < mrt))
+			double responseTime = 0;
+			responseTime = o.time - w.deliverPath.back().timeLeave - o.from->distant(*w.deliverPath.back().p);
+			if (responseTime < 0)
+				continue;
+			if (mrtw == nullptr || responseTime < mrt)
 			{
 				mrt = responseTime;
 				mrtw = &w;
@@ -61,7 +60,7 @@ static void orderWrap(std::vector<order::wrap> &result) {
 		}
 		if (mrtw != nullptr)
 		{
-			mrtw->pushBack(&o);
+			mrtw->pushBack(&o, mode == Dynamic);
 			t1++;
 			continue;
 		}
@@ -105,14 +104,14 @@ static void orderWrap(std::vector<order::wrap> &result) {
 		// Second chance
 		for (auto &w : result)
 		{
-			auto responseTime = o.time - w.deliverPath.back().time - o.from->distant(*w.deliverPath.back().p);
+			auto responseTime = o.time - w.deliverPath.back().timeLeave - o.from->distant(*w.deliverPath.back().p);
 			if (mrtw == nullptr || responseTime < mrt)
 			{
 				mrt = responseTime;
 				mrtw = &w;
 			}
 		}
-		mrtw->pushBack(&o);
+		mrtw->pushBack(&o, mode == Dynamic);
 		t3++;
     }
 	std::cout << "=====================================" << std::endl;
@@ -131,22 +130,27 @@ static void orderWrap(std::vector<order::wrap> &result) {
 		{
 			dispatchers->at(i).moveTo(static_cast<point>(*targets[i]));
 		}
-		Matrix<double> matrix(result.size(), dispatchers->size());
-		for (size_t i = 0; i < result.size(); i++) {
-			for (size_t j = 0; j < dispatchers->size(); j++) {
-				matrix(i, j) = result[i].deliverPath.front().p->distant(static_cast<point>(dispatchers->at(j)));
-			}
-		}
-		Munkres<double> m;
-		m.solve(matrix);
-		for (size_t i = 0; i < result.size(); i++) {
-			for (size_t j = 0; j < dispatchers->size(); j++) {
-				if (matrix(i, j) == 0) {
-					result[i].addOffset(result[i].deliverPath.front().p->distant(static_cast<point>(dispatchers->at(j))));
-					dispatchers->at(j).path = &result[i].deliverPath;
+
+		for (auto &w : result)
+		{
+			double min = -1;
+			dispatcher *mdp = nullptr;
+			for (auto &d : *dispatchers)
+			{
+				if (d.path == nullptr)
+				{
+					auto dist = point::dist(w.deliverPath.front().p, &d);
+					if (min == -1 || dist < min)
+					{
+						min = dist;
+						mdp = &d;
+					}
 				}
 			}
+			mdp->path = &w.deliverPath;
+			w.setStartTime(w.deliverPath.front().o->time + min, true);
 		}
+
 	}
 	else if (mode == Static)
 	{
@@ -159,7 +163,8 @@ static void orderWrap(std::vector<order::wrap> &result) {
 }
 
 inline void process() {
-    out = std::ofstream("out.txt", std::ios::out);
+	out = std::ofstream("out.txt", std::ios::out);
+	auto debug = std::ofstream("debug.txt", std::ios::out);
     if (!out.is_open()) {
         std::cerr << "Unable to open file `out.txt`." << std::endl;
         return;
@@ -175,14 +180,15 @@ inline void process() {
 		order::wrap::printPath(out, d.path, static_cast<point>(d));
 		for (auto &p : *d.path) {
 			if (p.t == order::orderPoint::d) {
-				if (p.time - p.o->time > max)
-					max = p.time - p.o->time;
+				debug << p.o->index << "\t" << p.timeLeave - p.timeEnter << std::endl;
+				if (p.timeEnter - p.o->time > max)
+					max = p.timeEnter - p.o->time;
 			}
 		}
 	}
 	for (auto &w : wrap)
 	{
-		std::cout << w;
+		std::cout << w.orderList.size() << std::endl;
 	}
 	assert(dispatchers->size() == wrap.size());
 	std::cout << "=====================================" << std::endl;
