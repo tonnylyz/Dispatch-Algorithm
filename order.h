@@ -8,6 +8,7 @@
 #include "point.h"
 #include "district.h"
 #include "restaurant.h"
+#include <cassert>
 
 extern unsigned int containerSize;
 
@@ -26,7 +27,7 @@ public:
     public:
         enum orderPointType {
             r,
-            d
+            d, m
         };
         point * p;
         order * o;
@@ -48,7 +49,7 @@ public:
                         time = iter->o->time;
                     }
 					iter->time = time;
-                } else if (iter->t == orderPoint::d) {
+                } else/* if (iter->t == orderPoint::d or m) */{
                     iter->time = time;
                 }
                 if (iter + 1 != path.end()) {
@@ -68,9 +69,9 @@ public:
             return max;
         }
 
-        bool _full() const {
+        static double _full(std::vector<orderPoint> &path) {
             unsigned int maxLoaded = 0, loaded = 0;
-            for (auto iter = deliverPath.begin(); iter != deliverPath.end(); ++iter) {
+            for (auto iter = path.begin(); iter != path.end(); ++iter) {
                 if (iter->t == orderPoint::r) {
                     loaded++;
                 } else if (iter->t == orderPoint::d) {
@@ -80,20 +81,35 @@ public:
                     maxLoaded = loaded;
                 }
             }
-            return maxLoaded >= containerSize;
+            return maxLoaded;
         }
 
-		std::vector<orderPoint>::iterator _currentPosition(double time)
+		size_t _currentIndex(double time)
         {
-			auto result = deliverPath.end();
-	        for (auto iter = deliverPath.begin(); iter != deliverPath.end(); ++iter)
-	        {
-		        if (iter->time > time)
-		        {
-					result = iter + 1;
-		        }
-	        }
-			return result;
+			for (size_t i = 0; i < deliverPath.size(); i++)
+			{
+				if (deliverPath[i].time > time)
+				{
+					return i;
+				}
+			}
+			return -1;
+        }
+
+		point * _currentPoint(double time)
+        {
+			auto a = deliverPath.begin() + _currentIndex(time) - 1;
+			auto b = deliverPath.begin() + _currentIndex(time);
+			double offset = time - a->time;
+			double distance = point::dist(a->p, b->p);
+			double ratio = offset / distance;
+			double xd = b->p->x() - a->p->x();
+			double yd = b->p->y() - a->p->y();
+			xd *= ratio;
+			yd *= ratio;
+			//TODO: Memory leak here!
+			point *p = new point(a->p->x() + xd, a->p->y() + yd);
+			return p;
         }
 
     public:
@@ -122,17 +138,29 @@ public:
 			std::vector<orderPoint> minPath;
 			// Here will not insert to end
 
-			for (auto from = dynamic ? _currentPosition(o->time) - deliverPath.begin() : (deliverPath.size() - 1);; from--) {
-				if (from >= deliverPath.size())
+			for (auto from = dynamic ? _currentIndex(o->time) : deliverPath.size() - 1;; dynamic ? from++ : from--) {
+				if (from == -1)
 					return -1;
-				if (deliverPath[from].t == orderPoint::r
+				if (from >= deliverPath.size())
+					break;
+				if (!dynamic && deliverPath[from].t == orderPoint::r
 					&& o->time < deliverPath[from].time) {
 					break;
 				}
 				for (auto to = from + 1; to <= deliverPath.size() + 1; to++) {
 					auto path = std::vector<orderPoint>(deliverPath);
+
+
 					path.emplace(path.begin() + from, o->from, o, orderPoint::r);
 					path.emplace(path.begin() + to, o->to, o, orderPoint::d);
+					if (dynamic && from == _currentIndex(o->time))
+					{
+						//std::cout << from << to << deliverPath.size() << std::endl;
+						path.emplace(path.begin() + from, _currentPoint(o->time), nullptr, orderPoint::m);
+					}
+
+					if (_full(path) > containerSize)
+						continue;
 					_calcTime(path);
 					auto time = _maxTime(path, from) - _maxTime(deliverPath, from);
 					if (minTime == 0) {
@@ -233,6 +261,7 @@ public:
 				else
 					os << point::dist(p->p, &start) << " ";
 				os << p->time << " ";
+				assert(load <= containerSize);
 
 				os << load << std::endl;
 			}
